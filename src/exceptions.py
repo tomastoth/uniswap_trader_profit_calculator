@@ -1,0 +1,2 @@
+class UnassignedTradedTokenError(Exception):
+    pass

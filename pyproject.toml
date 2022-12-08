@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "uniswap-trade-analyzer"
+version = "0.1.0"
+description = ""
+authors = ["Tomas Toth <tomas.toth004@gmail.com>"]
+readme = "README.md"
+packages = [{include = "src"}, {"include" = "tests"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^0.21.0"
+requests = "^2.28.1"
+web3 = "^5.31.2"
+mypy = "^0.991"
+ruff = "^0.0.151"
+pytest = "^7.2.0"
+crypto-utils = {path = "../crypto_utils"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
