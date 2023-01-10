@@ -5,7 +5,7 @@ from tests import trade_utils
 
 
 @pytest.fixture
-def profit_calculator():
+def profit_calculator() -> trade_processing.TraderProfitCalculator:
     return trade_processing.TraderProfitCalculator()
 
 
@@ -22,14 +22,13 @@ def create_buying_trade(value_usd: float, tokens_bought: float) -> schemas.Token
         amount=value_usd,
         value_usd=value_usd,
     )
-    buy_trade = trade_utils.create_coin_swap_trade(
+    return trade_utils.create_coin_swap_trade(  # type: ignore
         usd_paid=value_usd,
         usd_received=value_usd,
         sold_tokens=[paid_usdt],
         bought_tokens=[bought_spex],
         transaction_hash="0x123456",
     )
-    return buy_trade
 
 
 def test_saving_open_trade(
@@ -59,14 +58,13 @@ def create_sell_trade(value_usd: float, tokens_sold: float) -> schemas.TokenSwap
         amount=value_usd,
         value_usd=value_usd,
     )
-    sell_trade = trade_utils.create_coin_swap_trade(
+    return trade_utils.create_coin_swap_trade(  # type: ignore
         usd_paid=value_usd,
         usd_received=value_usd,
         sold_tokens=[sold_spex],
         bought_tokens=[received_usdt],
         transaction_hash="0x123456",
     )
-    return sell_trade
 
 
 def test_extending_open_trade(
