@@ -14,7 +14,7 @@ web3 = "^5.31.2"
 mypy = "^0.991"
 ruff = "^0.0.151"
 pytest = "^7.2.0"
-crypto-utils = {path = "../crypto_utils"}
+crypto_utils = {git = "https://github.com/tomastoth/py_crypto_utils", branch="master"}
 
 
 [build-system]

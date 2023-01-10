@@ -6,25 +6,25 @@ from src import exceptions, schemas
 
 log = logging.getLogger(__name__)
 DIFF_DIVIDER = 10.0
-IGNORED_BUY_TOKEN_SYMBOLS = ["WETH", "USDT", "USDC", "DAI"]
+IGNORED_BUY_TOKEN_SYMBOLS = ["WETH", "USDT", "USDC", "DAI", "RAI"]
 
 
 class TokenSwapProcessor(ABC):
     @abstractmethod
-    def receive_token_swap(self, trade: schemas.TokenSwap):
+    def receive_token_swap(self, trade: schemas.TokenSwap) -> None:
         pass
 
 
 class TraderProfitCalculator(TokenSwapProcessor):
-    def __init__(self):
+    def __init__(self) -> None:
         self._finished_trades: list[schemas.FinishedTrade] = []
         self._bought_tokens: dict[str, schemas.BoughtToken] = {}
 
+    @staticmethod
     def _create_finished_trade(
-            self,
-            open_trade: schemas.BoughtToken,
-            token_sold: schemas.TradedToken,
-            sell_trade: schemas.TokenSwap,
+        open_trade: schemas.BoughtToken,
+        token_sold: schemas.TradedToken,
+        sell_trade: schemas.TokenSwap,
     ) -> schemas.FinishedTrade:
         sell_price_usd = token_sold.price_usd
         amount_owned = open_trade.currently_held_amount
@@ -32,7 +32,8 @@ class TraderProfitCalculator(TokenSwapProcessor):
         if amount_sold > amount_owned:
             amount_sold = amount_owned  # TODO think of better implementation for this
             log.warning(
-                f"Trade for {token_sold.symbol} would be selling more amount than we owned, adjusting to max we owned"
+                f"Trade for {token_sold.symbol} would be selling more"
+                f" amount than we owned, adjusting to max we owned"
             )
             token_sold.amount = amount_sold
         buy_price_usd = open_trade.average_buy_price_usd
@@ -52,7 +53,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
         )
 
     def _adjust_bought_token(
-            self, bought_token: schemas.BoughtToken, new_token_sold: schemas.TradedToken
+        self, bought_token: schemas.BoughtToken, new_token_sold: schemas.TradedToken
     ) -> None:
         adjusted_bought_token = dataclasses.replace(bought_token)
         bought_token_address = bought_token.token_bought.address
@@ -65,7 +66,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
             del self._bought_tokens[bought_token_address]
 
     def _check_closing_trade(
-            self, new_trade: schemas.TokenSwap
+        self, new_trade: schemas.TokenSwap
     ) -> schemas.FinishedTrade | None:
         new_tokens_sold = new_trade.sold_tokens
         for new_token_sold in new_tokens_sold:
@@ -76,25 +77,28 @@ class TraderProfitCalculator(TokenSwapProcessor):
                     )
                     self._adjust_bought_token(bought_token, new_token_sold)
                     return finished_trade
+        return None
 
     @classmethod
     def _calculate_new_average_price(
-            cls,
-            current_amount: float,
-            current_price: float,
-            new_amount: float,
-            new_price: float,
+        cls,
+        current_amount: float,
+        current_price: float,
+        new_amount: float,
+        new_price: float,
     ) -> float:
         return ((current_price * current_amount) + (new_price * new_amount)) / (
-                current_amount + new_amount
+            current_amount + new_amount
         )
 
-    def _extend_bought_token(self, new_single_token_buy: schemas.SingleTokenBuy):
+    def _extend_bought_token(
+        self, new_single_token_buy: schemas.SingleTokenBuy
+    ) -> None:
         token_address = new_single_token_buy.token_bought.address
         current_bought_token = self._bought_tokens[token_address]
         new_quantity = (
-                current_bought_token.currently_held_amount
-                + new_single_token_buy.bought_token_amount
+            current_bought_token.currently_held_amount
+            + new_single_token_buy.bought_token_amount
         )
         new_average_price = self._calculate_new_average_price(
             current_bought_token.currently_held_amount,
@@ -107,7 +111,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
         current_bought_token.currently_held_amount = new_quantity
 
     def _create_bought_token(
-            self, new_single_token_buy: schemas.SingleTokenBuy
+        self, new_single_token_buy: schemas.SingleTokenBuy
     ) -> schemas.BoughtToken:
         return schemas.BoughtToken(
             token_bought=new_single_token_buy.token_bought,
@@ -116,7 +120,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
             single_token_buys=[new_single_token_buy],
         )
 
-    def receive_token_swap(self, token_swap: schemas.TokenSwap):
+    def receive_token_swap(self, token_swap: schemas.TokenSwap) -> None:
         finished_trade = self._check_closing_trade(token_swap)
         if finished_trade:
             self._finished_trades.append(finished_trade)
@@ -128,9 +132,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
             )
             for new_single_token_buy in new_single_token_buys:
                 token_bought_address = new_single_token_buy.token_bought.address
-                if (
-                        token_bought_address in self._bought_tokens
-                ):  # TODO add handling for multiple buys of same coin
+                if token_bought_address in self._bought_tokens:
                     self._extend_bought_token(new_single_token_buy)
                 else:
                     new_bought_token = self._create_bought_token(new_single_token_buy)
@@ -138,8 +140,8 @@ class TraderProfitCalculator(TokenSwapProcessor):
 
     @staticmethod
     def _are_numbers_equal(
-            num_1: float, num_2: float, diff_divider: float = DIFF_DIVIDER
-    ):
+        num_1: float, num_2: float, diff_divider: float = DIFF_DIVIDER
+    ) -> bool:
         """
         :param num_1:  number to compare with second number
         :param num_2:  number to compare with first number
@@ -153,10 +155,10 @@ class TraderProfitCalculator(TokenSwapProcessor):
 
     @classmethod
     def _create_single_token_buy(
-            cls,
-            token_swap: schemas.TokenSwap,
-            bought_token: schemas.TradedToken,
-            transaction_hash: str,
+        cls,
+        token_swap: schemas.TokenSwap,
+        bought_token: schemas.TradedToken,
+        transaction_hash: str,
     ) -> schemas.SingleTokenBuy:
         for token_paid in token_swap.sold_tokens:
             if cls._are_numbers_equal(bought_token.value_usd, token_paid.value_usd):
@@ -173,7 +175,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
 
     @classmethod
     def _filter_out_ignored_token_trades(
-            cls, new_open_trades: list[schemas.SingleTokenBuy]
+        cls, new_open_trades: list[schemas.SingleTokenBuy]
     ) -> list[schemas.SingleTokenBuy]:
         return [
             trade
@@ -183,7 +185,7 @@ class TraderProfitCalculator(TokenSwapProcessor):
 
     @classmethod
     def _convert_token_swap_to_single_token_buy(
-            cls, token_swap: schemas.TokenSwap
+        cls, token_swap: schemas.TokenSwap
     ) -> list[schemas.SingleTokenBuy]:
         new_single_token_buys: list[schemas.SingleTokenBuy] = []
         for bought_token in token_swap.bought_tokens:
